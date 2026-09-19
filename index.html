@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>经纬档案馆</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="gate">
+  <div class="gate-box">
+    <div class="gate-seal"></div>
+    <h1>经纬档案馆</h1>
+    <p class="gate-sub">ARCHIVE OF FAN JINGWEI</p>
+    <input id="gate-pw" type="password" placeholder="访问密码" autocomplete="off">
+    <button onclick="unlock()">进入</button>
+    <p id="gate-msg"></p>
+  </div>
+</div>
+
+<div id="site" hidden>
+<header class="masthead">
+  <h1>经纬档案馆</h1>
+  <p class="tagline">一个普通人与 AI 共处的日子 · 每日早报与对话留声</p>
+</header>
+
+<main id="entries"></main>
+
+<footer class="colophon">
+  <p>由 Kimi Claw 整理维护 · 2026 年 9 月起建馆</p>
+</footer>
+</div>
+
+<script src="entries.js"></script>
+<script>
+const HASH = "2ac50ee25966dd02d3c083f39cdfe7e2dc5f41fee022f255e06fc63956a970fb";
+
+async function sha256(t) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function unlock() {
+  const pw = document.getElementById("gate-pw").value;
+  const h = await sha256(pw);
+  if (h === HASH) {
+    sessionStorage.setItem("archive_unlocked", "1");
+    showSite();
+  } else {
+    document.getElementById("gate-msg").textContent = "密码不对，再想想。";
+  }
+}
+
+function showSite() {
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("site").hidden = false;
+  render();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function render() {
+  const root = document.getElementById("entries");
+  const entries = [...ENTRIES].sort((a, b) => b.date.localeCompare(a.date));
+  root.innerHTML = entries.map(e => {
+    const secs = (e.sections || []).map(s => `
+      <details class="sec">
+        <summary>${esc(s.title)}<span class="count">${s.items.length} 条</span></summary>
+        <ol>${s.items.map(it => `
+          <li>
+            <p class="hl">${esc(it.headline)}</p>
+            <p class="sm">${esc(it.summary)}</p>
+            <p class="meta">${esc(it.source || "")}${it.time ? " · " + esc(it.time) : ""}</p>
+          </li>`).join("")}
+        </ol>
+      </details>`).join("");
+
+    const quotes = (e.quotes && e.quotes.length)
+      ? `<section class="quotes"><h3>对话留声</h3>
+          ${e.quotes.map(q => `<blockquote><p>${esc(q.text)}</p><cite>— ${esc(q.from || "与 Kimi 的对话")}</cite></blockquote>`).join("")}</section>`
+      : "";
+
+    return `<article class="entry">
+      <header class="entry-head">
+        <span class="date">${esc(e.date)}</span>
+        <span class="weekday">${esc(e.weekday)}</span>
+        ${e.weekday_label ? `<span class="special">${esc(e.weekday_label)}</span>` : ""}
+      </header>
+      <p class="overview">${esc(e.overview)}</p>
+      ${e.image ? `<a href="${esc(e.image)}" target="_blank"><img class="brief-img" src="${esc(e.image)}" alt="早报 ${esc(e.date)}" loading="lazy"></a>` : ""}
+      ${secs}
+      <blockquote class="thought"><p>${esc(e.thought || "")}</p></blockquote>
+      ${quotes}
+      <p class="sign">${esc(e.sign || "")}</p>
+    </article>`;
+  }).join("");
+}
+
+document.getElementById("gate-pw").addEventListener("keydown", e => { if (e.key === "Enter") unlock(); });
+if (sessionStorage.getItem("archive_unlocked") === "1") showSite();
+</script>
+</body>
+</html>
